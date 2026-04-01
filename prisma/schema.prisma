@@ -1,0 +1,154 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Supplier {
+  id        Int        @id @default(autoincrement())
+  name      String
+  phone     String?
+  email     String?
+  cuit      String?    // taxId
+  purchases Purchase[]
+
+  @@map("suppliers")
+}
+
+model Category {
+  id       Int       @id @default(autoincrement())
+  name     String
+  products Product[]
+
+  @@map("categories")
+}
+
+model Brand {
+  id       Int       @id @default(autoincrement())
+  name     String
+  products Product[]
+
+  @@map("brands")
+}
+
+model Product {
+  id             Int             @id @default(autoincrement())
+  name           String
+  description    String?
+  categoryId     Int
+  brandId        Int
+  barcode        String?
+  purchasePrice  Decimal         @db.Decimal(10, 2)
+  sellingPrice   Decimal         @db.Decimal(10, 2)
+  minStock       Int             @default(0)
+  isActive       Boolean         @default(true)
+  category       Category        @relation(fields: [categoryId], references: [id])
+  brand          Brand           @relation(fields: [brandId], references: [id])
+  purchaseItems  PurchaseItem[]
+  saleItems      SaleItem[]
+  stockMovements StockMovement[]
+
+  @@map("products")
+}
+
+model Purchase {
+  id            Int            @id @default(autoincrement())
+  supplierId    Int
+  date          DateTime       @default(now())
+  total         Decimal        @db.Decimal(10, 2)
+  status        String
+  supplier      Supplier       @relation(fields: [supplierId], references: [id])
+  purchaseItems PurchaseItem[]
+
+  @@map("purchases")
+}
+
+model PurchaseItem {
+  id            Int      @id @default(autoincrement())
+  purchaseId    Int
+  productId     Int
+  quantity      Int
+  unitPrice     Decimal  @db.Decimal(10, 2)
+  subtotal      Decimal  @db.Decimal(10, 2)
+  purchase      Purchase @relation(fields: [purchaseId], references: [id])
+  product       Product  @relation(fields: [productId], references: [id])
+
+  @@map("purchase_items")
+}
+
+model Customer {
+  id           Int       @id @default(autoincrement())
+  name         String
+  taxId        String?   // cuit
+  creditLimit  Decimal   @db.Decimal(10, 2)
+  isActive     Boolean   @default(true)
+  sales        Sale[]
+  payments     Payment[]
+
+  @@map("customers")
+}
+
+model Sale {
+  id            Int        @id @default(autoincrement())
+  customerId    Int
+  date          DateTime   @default(now())
+  total         Decimal    @db.Decimal(10, 2)
+  status        String
+  paymentMethod String
+  customer      Customer   @relation(fields: [customerId], references: [id])
+  saleItems     SaleItem[]
+
+  @@map("sales")
+}
+
+model SaleItem {
+  id            Int      @id @default(autoincrement())
+  saleId        Int
+  productId     Int
+  quantity      Int
+  unitPrice     Decimal  @db.Decimal(10, 2)
+  subtotal      Decimal  @db.Decimal(10, 2)
+  sale          Sale     @relation(fields: [saleId], references: [id])
+  product       Product  @relation(fields: [productId], references: [id])
+
+  @@map("sale_items")
+}
+
+model Payment {
+  id            Int      @id @default(autoincrement())
+  customerId    Int
+  date          DateTime @default(now())
+  amount        Decimal  @db.Decimal(10, 2)
+  paymentMethod String
+  customer      Customer @relation(fields: [customerId], references: [id])
+
+  @@map("payments")
+}
+
+model User {
+  id       Int     @id @default(autoincrement())
+  name     String
+  email    String  @unique
+  password String
+  role     String
+  isActive Boolean @default(true)
+
+  @@map("users")
+}
+
+model StockMovement {
+  id           Int      @id @default(autoincrement())
+  productId    Int
+  movementType String
+  quantity     Int
+  date         DateTime @default(now())
+  product      Product  @relation(fields: [productId], references: [id])
+
+  @@map("stock_movements")
+}
