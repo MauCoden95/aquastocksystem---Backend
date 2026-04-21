@@ -7,9 +7,13 @@ import { PrismaService } from '../prisma/prisma.service';
 export class ProductsService {
   constructor(private prisma: PrismaService) {}
 
-  create(createProductDto: CreateProductDto) {
+  create(createProductDto: CreateProductDto, userId: number) {
     return this.prisma.product.create({
-      data: createProductDto,
+      data: {
+        ...createProductDto,
+        createdById: userId,
+        updatedById: userId,
+      },
     });
   }
 
@@ -33,17 +37,23 @@ export class ProductsService {
     });
   }
 
-  update(id: number, updateProductDto: UpdateProductDto) {
+  update(id: number, updateProductDto: UpdateProductDto, userId: number) {
     return this.prisma.product.update({
       where: { id },
-      data: updateProductDto,
+      data: {
+        ...updateProductDto,
+        updatedById: userId,
+      },
     });
   }
 
-  remove(id: number) {
+  remove(id: number, userId: number) {
     return this.prisma.product.update({
       where: { id },
-      data: { deletedAt: new Date() },
+      data: {
+        deletedAt: new Date(),
+        updatedById: userId,
+      },
     });
   }
 }
