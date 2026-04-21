@@ -48,8 +48,13 @@ model Product {
   sellingPrice   Decimal         @db.Decimal(10, 2)
   minStock       Int             @default(0)
   isActive       Boolean         @default(true)
+  deletedAt      DateTime?
+  createdById    Int?
+  updatedById    Int?
   category       Category        @relation(fields: [categoryId], references: [id])
   brand          Brand           @relation(fields: [brandId], references: [id])
+  createdBy      User?           @relation(name: "CreatedProducts", fields: [createdById], references: [id])
+  updatedBy      User?           @relation(name: "UpdatedProducts", fields: [updatedById], references: [id])
   purchaseItems  PurchaseItem[]
   saleItems      SaleItem[]
   stockMovements StockMovement[]
@@ -138,6 +143,8 @@ model User {
   password String
   role     String
   isActive Boolean @default(true)
+  createdProducts Product[] @relation("CreatedProducts")
+  updatedProducts Product[] @relation("UpdatedProducts")
 
   @@map("users")
 }
