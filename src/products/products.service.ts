@@ -17,14 +17,36 @@ export class ProductsService {
     });
   }
 
-  findAll() {
-    return this.prisma.product.findMany({
-      where: { deletedAt: null },
-      include: {
-        category: true,
-        brand: true,
+  async findAll(page: number = 1, limit: number = 10) {
+    const skip = (page - 1) * limit;
+
+    const [data, totalItems] = await Promise.all([
+      this.prisma.product.findMany({
+        where: { deletedAt: null },
+        skip,
+        take: limit,
+        include: {
+          category: true,
+          brand: true,
+        },
+      }),
+      this.prisma.product.count({
+        where: { deletedAt: null },
+      }),
+    ]);
+
+    const totalPages = Math.ceil(totalItems / limit);
+
+    return {
+      data,
+      meta: {
+        totalItems,
+        itemCount: data.length,
+        itemsPerPage: limit,
+        totalPages,
+        currentPage: page,
       },
-    });
+    };
   }
 
   findOne(id: number) {
