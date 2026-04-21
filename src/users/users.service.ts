@@ -30,10 +30,17 @@ export class UsersService {
   }
 
   async update(id: number, updateUserDto: UpdateUserDto) {
-    return this.prisma.user.update({
+    if (updateUserDto.password) {
+      updateUserDto.password = await bcrypt.hash(updateUserDto.password, 10);
+    }
+
+    const user = await this.prisma.user.update({
       where: { id },
       data: updateUserDto,
     });
+
+    const { password: _, ...result } = user;
+    return result;
   }
 
  
