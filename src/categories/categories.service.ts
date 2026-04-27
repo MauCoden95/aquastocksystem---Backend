@@ -14,12 +14,15 @@ export class CategoriesService {
   }
 
   findAll() {
-    return this.prisma.category.findMany();
+    return this.prisma.category.findMany({
+      include: { _count: { select: { products: true } } },
+    });
   }
 
   async findOne(id: number) {
     const category = await this.prisma.category.findUnique({
       where: { id },
+      include: { _count: { select: { products: true } } },
     });
     if (!category) {
       throw new NotFoundException(`Category with ID ${id} not found`);
