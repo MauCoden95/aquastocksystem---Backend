@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
 import { PrismaService } from '../prisma/prisma.service';
@@ -37,6 +37,17 @@ export class CategoriesService {
 
   async remove(id: number) {
     await this.findOne(id);
+
+    const productCount = await this.prisma.product.count({
+      where: { categoryId: id },
+    });
+
+    if (productCount > 0) {
+      throw new ConflictException(
+        `No se puede eliminar la categoría porque tiene ${productCount} producto(s) asociado(s).`,
+      );
+    }
+
     return this.prisma.category.delete({
       where: { id },
     });
