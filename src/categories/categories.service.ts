@@ -7,7 +7,20 @@ import { PrismaService } from '../prisma/prisma.service';
 export class CategoriesService {
   constructor(private prisma: PrismaService) {}
 
-  create(createCategoryDto: CreateCategoryDto) {
+  private async checkDuplicateName(name: string, excludeId?: number) {
+    const existing = await this.prisma.category.findFirst({
+      where: {
+        name: { equals: name, mode: 'insensitive' },
+        ...(excludeId ? { NOT: { id: excludeId } } : {}),
+      },
+    });
+    if (existing) {
+      throw new ConflictException(`Ya existe una categoría con el nombre "${name}".`);
+    }
+  }
+
+  async create(createCategoryDto: CreateCategoryDto) {
+    await this.checkDuplicateName(createCategoryDto.name);
     return this.prisma.category.create({
       data: createCategoryDto,
     });
@@ -32,6 +45,9 @@ export class CategoriesService {
 
   async update(id: number, updateCategoryDto: UpdateCategoryDto) {
     await this.findOne(id);
+    if (updateCategoryDto.name) {
+      await this.checkDuplicateName(updateCategoryDto.name, id);
+    }
     return this.prisma.category.update({
       where: { id },
       data: updateCategoryDto,
