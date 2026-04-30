@@ -33,6 +33,11 @@ export class UsersService {
     return result;
   }
 
+
+
+
+  
+
   async findAll() {
     return this.prisma.user.findMany({
       where: { deletedAt: null },
@@ -48,11 +53,20 @@ export class UsersService {
     });
   }
 
+
+
+
+
   async findOneByEmail(email: string) {
     return this.prisma.user.findFirst({
       where: { email, deletedAt: null },
     });
   }
+
+
+
+
+
 
   async findOneById(id: number) {
     const user = await this.prisma.user.findFirst({
@@ -64,6 +78,10 @@ export class UsersService {
     const { password: _, ...result } = user;
     return result;
   }
+
+
+
+
 
   async update(id: number, updateUserDto: UpdateUserDto) {
     await this.findOneById(id);
@@ -81,6 +99,11 @@ export class UsersService {
     return result;
   }
 
+
+
+
+
+
   async remove(id: number) {
     await this.findOneById(id);
     
@@ -92,6 +115,11 @@ export class UsersService {
       },
     });
   }
+
+
+
+
+
 
   async restore(id: number) {
     const user = await this.prisma.user.findUnique({
