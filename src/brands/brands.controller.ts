@@ -8,6 +8,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 export class BrandsController {
   constructor(private readonly brandsService: BrandsService) {}
 
+  
   @UseGuards(JwtAuthGuard)
   @Post()
   create(@Body() createBrandDto: CreateBrandDto, @Request() req) {

@@ -14,6 +14,7 @@ export class BrandsService {
     const existing = await this.prisma.brand.findFirst({
       where: {
         name: { equals: name, mode: 'insensitive' },
+        deletedAt: null, 
         ...(excludeId ? { NOT: { id: excludeId } } : {}),
       },
     });
@@ -51,7 +52,7 @@ export class BrandsService {
   async findAll(page: number = 1, limit: number = 10, search?: string, isActive?: boolean) {
     const skip = (page - 1) * limit;
 
-    const where: any = {};
+    const where: any = { deletedAt: null }; 
     if (search) {
       where.name = { contains: search, mode: 'insensitive' };
     }
@@ -96,8 +97,8 @@ export class BrandsService {
 
 
   async findOne(id: number) {
-    const brand = await this.prisma.brand.findUnique({
-      where: { id },
+    const brand = await this.prisma.brand.findFirst({
+      where: { id, deletedAt: null }, 
       include: {
         _count: { select: { products: true } },
         createdBy: { select: { id: true, name: true } },
@@ -142,10 +143,10 @@ export class BrandsService {
 
   
   async remove(id: number) {
-    await this.findOne(id);
+    await this.findOne(id); 
 
     const productCount = await this.prisma.product.count({
-      where: { brandId: id },
+      where: { brandId: id, deletedAt: null }, 
     });
 
     if (productCount > 0) {
@@ -154,8 +155,12 @@ export class BrandsService {
       );
     }
 
-    return this.prisma.brand.delete({
+    return this.prisma.brand.update({
       where: { id },
+      data: {
+        deletedAt: new Date(),
+        isActive: false,
+      },
     });
   }
 }

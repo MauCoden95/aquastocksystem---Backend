@@ -33,6 +33,7 @@ model Brand {
   id          Int       @id @default(autoincrement())
   name        String
   isActive    Boolean   @default(true)
+  deletedAt   DateTime?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   createdById Int?
