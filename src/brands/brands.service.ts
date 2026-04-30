@@ -26,11 +26,38 @@ export class BrandsService {
     });
   }
 
-  findAll() {
-    return this.prisma.brand.findMany({
-      include: { _count: { select: { products: true } } },
-      orderBy: { name: 'asc' },
-    });
+  async findAll(page: number = 1, limit: number = 10, search?: string) {
+    const skip = (page - 1) * limit;
+
+    const where = search
+      ? {
+          name: { contains: search, mode: 'insensitive' as const },
+        }
+      : {};
+
+    const [data, totalItems] = await Promise.all([
+      this.prisma.brand.findMany({
+        where,
+        skip,
+        take: limit,
+        include: { _count: { select: { products: true } } },
+        orderBy: { name: 'asc' },
+      }),
+      this.prisma.brand.count({ where }),
+    ]);
+
+    const totalPages = Math.ceil(totalItems / limit);
+
+    return {
+      data,
+      meta: {
+        totalItems,
+        itemCount: data.length,
+        itemsPerPage: limit,
+        totalPages,
+        currentPage: page,
+      },
+    };
   }
 
   async findOne(id: number) {
