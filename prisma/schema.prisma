@@ -22,9 +22,17 @@ model Supplier {
 }
 
 model Category {
-  id       Int       @id @default(autoincrement())
-  name     String
-  products Product[]
+  id          Int       @id @default(autoincrement())
+  name        String
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+  createdById Int?
+  updatedById Int?
+  createdBy   User?     @relation(name: "CreatedCategories", fields: [createdById], references: [id])
+  updatedBy   User?     @relation(name: "UpdatedCategories", fields: [updatedById], references: [id])
+  products    Product[]
 
   @@map("categories")
 }
@@ -33,9 +41,9 @@ model Brand {
   id          Int       @id @default(autoincrement())
   name        String
   isActive    Boolean   @default(true)
-  deletedAt   DateTime?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
   createdById Int?
   updatedById Int?
   createdBy   User?     @relation(name: "CreatedBrands", fields: [createdById], references: [id])
@@ -57,6 +65,8 @@ model Product {
   minStock       Int             @default(0)
   stock          Int             @default(0)
   isActive       Boolean         @default(true)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
   deletedAt      DateTime?
   createdById    Int?
   updatedById    Int?
@@ -146,16 +156,21 @@ model Payment {
 }
 
 model User {
-  id       Int     @id @default(autoincrement())
-  name     String
-  email    String  @unique
-  password String
-  role     String
-  isActive Boolean @default(true)
-  createdProducts Product[] @relation("CreatedProducts")
-  updatedProducts Product[] @relation("UpdatedProducts")
-  createdBrands   Brand[]   @relation("CreatedBrands")
-  updatedBrands   Brand[]   @relation("UpdatedBrands")
+  id                Int        @id @default(autoincrement())
+  name              String
+  email             String     @unique
+  password          String
+  role              String
+  isActive          Boolean    @default(true)
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+  deletedAt         DateTime?
+  createdProducts   Product[]  @relation("CreatedProducts")
+  updatedProducts   Product[]  @relation("UpdatedProducts")
+  createdBrands     Brand[]    @relation("CreatedBrands")
+  updatedBrands     Brand[]    @relation("UpdatedBrands")
+  createdCategories Category[] @relation("CreatedCategories")
+  updatedCategories Category[] @relation("UpdatedCategories")
 
   @@map("users")
 }
