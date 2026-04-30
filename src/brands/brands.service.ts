@@ -163,4 +163,22 @@ export class BrandsService {
       },
     });
   }
+
+  async restore(id: number) {
+    const brand = await this.prisma.brand.findUnique({
+      where: { id },
+    });
+
+    if (!brand) {
+      throw new NotFoundException(`Marca con ID ${id} no encontrada`);
+    }
+
+    return this.prisma.brand.update({
+      where: { id },
+      data: {
+        deletedAt: null,
+        isActive: true,
+      },
+    });
+  }
 }

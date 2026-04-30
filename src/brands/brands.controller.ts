@@ -60,4 +60,10 @@ export class BrandsController {
   remove(@Param('id') id: string) {
     return this.brandsService.remove(+id);
   }
+
+  @UseGuards(JwtAuthGuard)
+  @Patch(':id/restore')
+  restore(@Param('id') id: string) {
+    return this.brandsService.restore(+id);
+  }
 }
