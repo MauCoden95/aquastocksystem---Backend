@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, Matches } from 'class-validator';
+import { IsString, IsNotEmpty, Matches, IsBoolean, IsOptional } from 'class-validator';
 import { Transform } from 'class-transformer';
 
 export class CreateBrandDto {
@@ -9,4 +9,8 @@ export class CreateBrandDto {
     message: 'El nombre contiene caracteres no válidos.',
   })
   name: string;
+
+  @IsOptional()
+  @IsBoolean({ message: 'El estado debe ser un valor booleano.' })
+  isActive?: boolean;
 }

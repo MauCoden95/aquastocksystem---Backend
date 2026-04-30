@@ -7,6 +7,9 @@ import { PrismaService } from '../prisma/prisma.service';
 export class BrandsService {
   constructor(private prisma: PrismaService) {}
 
+
+
+
   private async checkDuplicateName(name: string, excludeId?: number) {
     const existing = await this.prisma.brand.findFirst({
       where: {
@@ -19,28 +22,53 @@ export class BrandsService {
     }
   }
 
-  async create(createBrandDto: CreateBrandDto) {
+
+
+
+
+
+
+  async create(createBrandDto: CreateBrandDto, userId: number) {
     await this.checkDuplicateName(createBrandDto.name);
+    const userIdNum = Number(userId);
+
     return this.prisma.brand.create({
-      data: createBrandDto,
+      data: {
+        name: createBrandDto.name,
+        isActive: createBrandDto.isActive,
+        createdById: userIdNum,
+        updatedById: userIdNum,
+      },
     });
   }
 
-  async findAll(page: number = 1, limit: number = 10, search?: string) {
+
+
+
+
+
+
+  async findAll(page: number = 1, limit: number = 10, search?: string, isActive?: boolean) {
     const skip = (page - 1) * limit;
 
-    const where = search
-      ? {
-          name: { contains: search, mode: 'insensitive' as const },
-        }
-      : {};
+    const where: any = {};
+    if (search) {
+      where.name = { contains: search, mode: 'insensitive' };
+    }
+    if (isActive !== undefined) {
+      where.isActive = isActive;
+    }
 
     const [data, totalItems] = await Promise.all([
       this.prisma.brand.findMany({
         where,
         skip,
         take: limit,
-        include: { _count: { select: { products: true } } },
+        include: {
+          _count: { select: { products: true } },
+          createdBy: { select: { id: true, name: true } },
+          updatedBy: { select: { id: true, name: true } },
+        },
         orderBy: { name: 'asc' },
       }),
       this.prisma.brand.count({ where }),
@@ -60,10 +88,21 @@ export class BrandsService {
     };
   }
 
+
+
+
+
+
+
+
   async findOne(id: number) {
     const brand = await this.prisma.brand.findUnique({
       where: { id },
-      include: { _count: { select: { products: true } } },
+      include: {
+        _count: { select: { products: true } },
+        createdBy: { select: { id: true, name: true } },
+        updatedBy: { select: { id: true, name: true } },
+      },
     });
     if (!brand) {
       throw new NotFoundException(`Marca con ID ${id} no encontrada`);
@@ -71,17 +110,37 @@ export class BrandsService {
     return brand;
   }
 
-  async update(id: number, updateBrandDto: UpdateBrandDto) {
+
+
+
+
+
+
+
+  async update(id: number, updateBrandDto: UpdateBrandDto, userId: number) {
     await this.findOne(id);
     if (updateBrandDto.name) {
       await this.checkDuplicateName(updateBrandDto.name, id);
     }
+    
+    const userIdNum = Number(userId);
+
     return this.prisma.brand.update({
       where: { id },
-      data: updateBrandDto,
+      data: {
+        name: updateBrandDto.name,
+        isActive: updateBrandDto.isActive,
+        updatedById: userIdNum,
+      },
     });
   }
 
+
+
+
+
+
+  
   async remove(id: number) {
     await this.findOne(id);
 

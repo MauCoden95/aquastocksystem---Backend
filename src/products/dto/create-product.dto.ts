@@ -33,6 +33,10 @@ export class CreateProductDto {
   @Min(0, { message: 'El stock mínimo no puede ser negativo' })
   minStock: number;
 
+  @IsInt({ message: 'El stock debe ser un número entero' })
+  @Min(0, { message: 'El stock no puede ser negativo' })
+  stock: number;
+
   @IsOptional()
   @IsBoolean({ message: 'El estado activo debe ser un valor booleano' })
   isActive?: boolean;

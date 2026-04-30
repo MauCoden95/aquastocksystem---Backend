@@ -8,11 +8,12 @@ export class ProductsService {
   constructor(private prisma: PrismaService) {}
 
   create(createProductDto: CreateProductDto, userId: number) {
+    const userIdNum = Number(userId);
     return this.prisma.product.create({
       data: {
         ...createProductDto,
-        createdById: userId,
-        updatedById: userId,
+        createdById: userIdNum,
+        updatedById: userIdNum,
       },
     });
   }
@@ -60,21 +61,23 @@ export class ProductsService {
   }
 
   update(id: number, updateProductDto: UpdateProductDto, userId: number) {
+    const userIdNum = Number(userId);
     return this.prisma.product.update({
       where: { id },
       data: {
         ...updateProductDto,
-        updatedById: userId,
+        updatedById: userIdNum,
       },
     });
   }
 
   remove(id: number, userId: number) {
+    const userIdNum = Number(userId);
     return this.prisma.product.update({
       where: { id },
       data: {
         deletedAt: new Date(),
-        updatedById: userId,
+        updatedById: userIdNum,
       },
     });
   }

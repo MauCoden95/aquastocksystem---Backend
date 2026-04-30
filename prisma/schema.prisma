@@ -30,9 +30,16 @@ model Category {
 }
 
 model Brand {
-  id       Int       @id @default(autoincrement())
-  name     String
-  products Product[]
+  id          Int       @id @default(autoincrement())
+  name        String
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  createdById Int?
+  updatedById Int?
+  createdBy   User?     @relation(name: "CreatedBrands", fields: [createdById], references: [id])
+  updatedBy   User?     @relation(name: "UpdatedBrands", fields: [updatedById], references: [id])
+  products    Product[]
 
   @@map("brands")
 }
@@ -47,6 +54,7 @@ model Product {
   purchasePrice  Decimal         @db.Decimal(10, 2)
   sellingPrice   Decimal         @db.Decimal(10, 2)
   minStock       Int             @default(0)
+  stock          Int             @default(0)
   isActive       Boolean         @default(true)
   deletedAt      DateTime?
   createdById    Int?
@@ -145,6 +153,8 @@ model User {
   isActive Boolean @default(true)
   createdProducts Product[] @relation("CreatedProducts")
   updatedProducts Product[] @relation("UpdatedProducts")
+  createdBrands   Brand[]   @relation("CreatedBrands")
+  updatedBrands   Brand[]   @relation("UpdatedBrands")
 
   @@map("users")
 }
