@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Request } from '@nestjs/common';
 import { SuppliersService } from './suppliers.service';
 import { CreateSupplierDto } from './dto/create-supplier.dto';
 import { UpdateSupplierDto } from './dto/update-supplier.dto';
@@ -10,8 +10,8 @@ export class SuppliersController {
   constructor(private readonly suppliersService: SuppliersService) {}
 
   @Post()
-  create(@Body() createSupplierDto: CreateSupplierDto) {
-    return this.suppliersService.create(createSupplierDto);
+  create(@Body() createSupplierDto: CreateSupplierDto, @Request() req) {
+    return this.suppliersService.create(createSupplierDto, req.user?.id);
   }
 
   @Get()
@@ -25,12 +25,18 @@ export class SuppliersController {
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updateSupplierDto: UpdateSupplierDto) {
-    return this.suppliersService.update(+id, updateSupplierDto);
+  update(@Param('id') id: string, @Body() updateSupplierDto: UpdateSupplierDto, @Request() req) {
+    return this.suppliersService.update(+id, updateSupplierDto, req.user?.id);
   }
 
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.suppliersService.remove(+id);
   }
+
+  @Patch(':id/restore')
+  restore(@Param('id') id: string) {
+    return this.suppliersService.restore(+id);
+  }
 }
+

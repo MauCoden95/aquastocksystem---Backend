@@ -11,12 +11,20 @@ datasource db {
 }
 
 model Supplier {
-  id        Int        @id @default(autoincrement())
-  name      String
-  phone     String?
-  email     String?
-  cuit      String?    // taxId
-  purchases Purchase[]
+  id          Int        @id @default(autoincrement())
+  name        String
+  phone       String?
+  email       String?
+  cuit        String?    // taxId
+  isActive    Boolean    @default(true)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt @default(now())
+  deletedAt   DateTime?
+  createdById Int?
+  updatedById Int?
+  createdBy   User?      @relation(name: "CreatedSuppliers", fields: [createdById], references: [id])
+  updatedBy   User?      @relation(name: "UpdatedSuppliers", fields: [updatedById], references: [id])
+  purchases   Purchase[]
 
   @@map("suppliers")
 }
@@ -171,6 +179,8 @@ model User {
   updatedBrands     Brand[]    @relation("UpdatedBrands")
   createdCategories Category[] @relation("CreatedCategories")
   updatedCategories Category[] @relation("UpdatedCategories")
+  createdSuppliers  Supplier[] @relation("CreatedSuppliers")
+  updatedSuppliers  Supplier[] @relation("UpdatedSuppliers")
 
   @@map("users")
 }
