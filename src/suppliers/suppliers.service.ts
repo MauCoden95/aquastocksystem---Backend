@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateSupplierDto } from './dto/create-supplier.dto';
 import { UpdateSupplierDto } from './dto/update-supplier.dto';
@@ -7,7 +7,40 @@ import { UpdateSupplierDto } from './dto/update-supplier.dto';
 export class SuppliersService {
   constructor(private prisma: PrismaService) {}
 
+  private async checkDuplicateEmail(email?: string, excludeId?: number) {
+    if (!email) return;
+    const existing = await this.prisma.supplier.findFirst({
+      where: {
+        email: { equals: email, mode: 'insensitive' },
+        deletedAt: null,
+        ...(excludeId ? { NOT: { id: excludeId } } : {}),
+      },
+    });
+    
+    if (existing) {
+      throw new ConflictException(`Ya existe un proveedor con el email "${email}".`);
+    }
+  }
+
+  private async checkDuplicateCuit(cuit?: string, excludeId?: number) {
+    if (!cuit) return;
+    const existing = await this.prisma.supplier.findFirst({
+      where: {
+        cuit: { equals: cuit, mode: 'insensitive' },
+        deletedAt: null,
+        ...(excludeId ? { NOT: { id: excludeId } } : {}),
+      },
+    });
+    
+    if (existing) {
+      throw new ConflictException(`Ya existe un proveedor con el CUIT "${cuit}".`);
+    }
+  }
+
   async create(createSupplierDto: CreateSupplierDto, userId?: number) {
+    await this.checkDuplicateEmail(createSupplierDto.email);
+    await this.checkDuplicateCuit(createSupplierDto.cuit);
+
     return this.prisma.supplier.create({
       data: {
         ...createSupplierDto,
@@ -69,6 +102,9 @@ export class SuppliersService {
 
   async update(id: number, updateSupplierDto: UpdateSupplierDto, userId?: number) {
     await this.findOne(id); // Check if exists
+
+    await this.checkDuplicateEmail(updateSupplierDto.email, id);
+    await this.checkDuplicateCuit(updateSupplierDto.cuit, id);
 
     return this.prisma.supplier.update({
       where: { id },
