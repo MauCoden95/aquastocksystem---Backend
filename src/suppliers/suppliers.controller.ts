@@ -44,5 +44,11 @@ export class SuppliersController {
   restore(@Param('id') id: string) {
     return this.suppliersService.restore(+id);
   }
+
+  @Get(':id/purchases')
+  getPurchases(@Param('id') id: string) {
+    return this.suppliersService.getPurchases(+id);
+  }
 }
+
 

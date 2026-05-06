@@ -144,5 +144,22 @@ export class SuppliersService {
       },
     });
   }
+
+  async getPurchases(id: number) {
+    await this.findOne(id); // Verify supplier exists
+
+    return this.prisma.purchase.findMany({
+      where: { supplierId: id },
+      include: {
+        purchaseItems: {
+          include: {
+            product: { select: { id: true, name: true, barcode: true } }
+          }
+        }
+      },
+      orderBy: { date: 'desc' }
+    });
+  }
 }
+
 
