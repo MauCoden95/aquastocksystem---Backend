@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreatePurchaseDto } from './dto/create-purchase.dto';
 import { CreatePurchaseDetailDto } from './dto/create-purchase-detail.dto';
+import { UpdatePurchaseStatusDto } from './dto/update-purchase-status.dto';
 import { Decimal } from '@prisma/client/runtime/library';
 
 @Injectable()
@@ -222,6 +223,58 @@ export class PurchasesService {
       });
 
       return newItem;
+    });
+  }
+
+  async updateStatus(id: number, updateStatusDto: UpdatePurchaseStatusDto) {
+    const { status } = updateStatusDto;
+
+    // Get current purchase with items
+    const purchase = await this.prisma.purchase.findUnique({
+      where: { id },
+      include: { purchaseItems: true },
+    });
+
+    if (!purchase) {
+      throw new NotFoundException(`Compra con ID ${id} no encontrada.`);
+    }
+
+    // If already COMPLETED, prevent completing again to avoid stock double-counting
+    if (purchase.status === 'COMPLETED' && status === 'COMPLETED') {
+      return purchase;
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      // Update purchase status
+      const updatedPurchase = await tx.purchase.update({
+        where: { id },
+        data: { status },
+      });
+
+      // If status is COMPLETED, update stock and create movements
+      if (status === 'COMPLETED') {
+        for (const item of purchase.purchaseItems) {
+          // Increment product stock
+          await tx.product.update({
+            where: { id: item.productId },
+            data: {
+              stock: { increment: item.quantity },
+            },
+          });
+
+          // Create stock movement record
+          await tx.stockMovement.create({
+            data: {
+              productId: item.productId,
+              quantity: item.quantity,
+              movementType: 'PURCHASE',
+              date: new Date(),
+            },
+          });
+        }
+      }
+
+      return updatedPurchase;
     });
   }
 }
