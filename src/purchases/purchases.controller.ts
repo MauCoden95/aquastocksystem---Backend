@@ -1,6 +1,7 @@
 import { Controller, Get, Post, Body, Param, UseGuards, Query } from '@nestjs/common';
 import { PurchasesService } from './purchases.service';
 import { CreatePurchaseDto } from './dto/create-purchase.dto';
+import { CreatePurchaseDetailDto } from './dto/create-purchase-detail.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @UseGuards(JwtAuthGuard)
@@ -27,4 +28,18 @@ export class PurchasesController {
   findOne(@Param('id') id: string) {
     return this.purchasesService.findOne(+id);
   }
+
+  @Get(':id/detail')
+  findPurchaseDetails(@Param('id') id: string) {
+    return this.purchasesService.findPurchaseDetails(+id);
+  }
+
+  @Post(':id/detail')
+  addPurchaseDetail(
+    @Param('id') id: string,
+    @Body() createPurchaseDetailDto: CreatePurchaseDetailDto,
+  ) {
+    return this.purchasesService.addPurchaseDetail(+id, createPurchaseDetailDto);
+  }
 }
+

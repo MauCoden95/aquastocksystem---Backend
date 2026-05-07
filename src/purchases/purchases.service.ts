@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreatePurchaseDto } from './dto/create-purchase.dto';
+import { CreatePurchaseDetailDto } from './dto/create-purchase-detail.dto';
 import { Decimal } from '@prisma/client/runtime/library';
 
 @Injectable()
@@ -126,4 +127,82 @@ export class PurchasesService {
 
     return purchase;
   }
+
+  async findPurchaseDetails(purchaseId: number) {
+    // Verify purchase exists
+    const purchase = await this.prisma.purchase.findUnique({
+      where: { id: purchaseId },
+    });
+    if (!purchase) {
+      throw new NotFoundException(`Compra con ID ${purchaseId} no encontrada.`);
+    }
+
+    return this.prisma.purchaseItem.findMany({
+      where: { purchaseId },
+      include: {
+        product: {
+          select: {
+            id: true,
+            name: true,
+            barcode: true,
+            sellingPrice: true,
+          },
+        },
+      },
+    });
+  }
+
+  async addPurchaseDetail(purchaseId: number, dto: CreatePurchaseDetailDto) {
+    // Verify purchase exists
+    const purchase = await this.prisma.purchase.findUnique({
+      where: { id: purchaseId },
+    });
+    if (!purchase) {
+      throw new NotFoundException(`Compra con ID ${purchaseId} no encontrada.`);
+    }
+
+    // Verify product exists
+    const product = await this.prisma.product.findFirst({
+      where: { id: dto.productId, deletedAt: null },
+    });
+    if (!product) {
+      throw new NotFoundException(`Producto con ID ${dto.productId} no encontrado.`);
+    }
+
+    const subtotal = new Decimal(dto.unitPrice * dto.quantity);
+
+    // Create the item and update purchase total in a transaction
+    return this.prisma.$transaction(async (tx) => {
+      const newItem = await tx.purchaseItem.create({
+        data: {
+          purchaseId,
+          productId: dto.productId,
+          quantity: dto.quantity,
+          unitPrice: new Decimal(dto.unitPrice),
+          subtotal,
+        },
+        include: {
+          product: {
+            select: { id: true, name: true, barcode: true },
+          },
+        },
+      });
+
+      // Recalculate and update purchase total
+      const allItems = await tx.purchaseItem.findMany({
+        where: { purchaseId },
+      });
+      const newTotal = allItems.reduce(
+        (acc, item) => acc.add(item.subtotal),
+        new Decimal(0),
+      );
+      await tx.purchase.update({
+        where: { id: purchaseId },
+        data: { total: newTotal },
+      });
+
+      return newItem;
+    });
+  }
 }
+
