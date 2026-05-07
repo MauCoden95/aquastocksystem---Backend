@@ -128,7 +128,9 @@ export class PurchasesService {
     return purchase;
   }
 
-  async findPurchaseDetails(purchaseId: number) {
+  async findPurchaseDetails(purchaseId: number, page: number = 1, limit: number = 10) {
+    const skip = (page - 1) * limit;
+
     // Verify purchase exists
     const purchase = await this.prisma.purchase.findUnique({
       where: { id: purchaseId },
@@ -137,19 +139,37 @@ export class PurchasesService {
       throw new NotFoundException(`Compra con ID ${purchaseId} no encontrada.`);
     }
 
-    return this.prisma.purchaseItem.findMany({
-      where: { purchaseId },
-      include: {
-        product: {
-          select: {
-            id: true,
-            name: true,
-            barcode: true,
-            sellingPrice: true,
+    const [data, totalItems] = await Promise.all([
+      this.prisma.purchaseItem.findMany({
+        where: { purchaseId },
+        skip,
+        take: limit,
+        include: {
+          product: {
+            select: {
+              id: true,
+              name: true,
+              barcode: true,
+              sellingPrice: true,
+            },
           },
         },
+      }),
+      this.prisma.purchaseItem.count({ where: { purchaseId } }),
+    ]);
+
+    const totalPages = Math.ceil(totalItems / limit);
+
+    return {
+      data,
+      meta: {
+        totalItems,
+        itemCount: data.length,
+        itemsPerPage: limit,
+        totalPages,
+        currentPage: page,
       },
-    });
+    };
   }
 
   async addPurchaseDetail(purchaseId: number, dto: CreatePurchaseDetailDto) {

@@ -30,8 +30,12 @@ export class PurchasesController {
   }
 
   @Get(':id/detail')
-  findPurchaseDetails(@Param('id') id: string) {
-    return this.purchasesService.findPurchaseDetails(+id);
+  findPurchaseDetails(
+    @Param('id') id: string,
+    @Query('page') page: string = '1',
+    @Query('limit') limit: string = '10',
+  ) {
+    return this.purchasesService.findPurchaseDetails(+id, +page, +limit);
   }
 
   @Post(':id/detail')
