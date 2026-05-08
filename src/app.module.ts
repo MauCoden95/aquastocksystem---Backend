@@ -12,6 +12,8 @@ import { SuppliersModule } from './suppliers/suppliers.module';
 import { PurchasesModule } from './purchases/purchases.module';
 import { ClientsModule } from './clients/clients.module';
 
+import { SalesModule } from './sales/sales.module';
+
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -26,6 +28,7 @@ import { ClientsModule } from './clients/clients.module';
     SuppliersModule,
     PurchasesModule,
     ClientsModule,
+    SalesModule,
   ],
   controllers: [AppController],
   providers: [AppService],
