@@ -114,26 +114,36 @@ model PurchaseItem {
   @@map("purchase_items")
 }
 
-model Customer {
+model Client {
   id           Int       @id @default(autoincrement())
   name         String
   taxId        String?   // cuit
-  creditLimit  Decimal   @db.Decimal(10, 2)
+  phone        String?
+  email        String?
+  address      String?
+  creditLimit  Decimal   @db.Decimal(10, 2) @default(0)
   isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+  createdById  Int?
+  updatedById  Int?
+  createdBy    User?     @relation(name: "CreatedClients", fields: [createdById], references: [id])
+  updatedBy    User?     @relation(name: "UpdatedClients", fields: [updatedById], references: [id])
   sales        Sale[]
   payments     Payment[]
 
-  @@map("customers")
+  @@map("clients")
 }
 
 model Sale {
   id            Int        @id @default(autoincrement())
-  customerId    Int
+  clientId      Int
   date          DateTime   @default(now())
   total         Decimal    @db.Decimal(10, 2)
   status        String
   paymentMethod String
-  customer      Customer   @relation(fields: [customerId], references: [id])
+  client        Client     @relation(fields: [clientId], references: [id])
   saleItems     SaleItem[]
 
   @@map("sales")
@@ -154,11 +164,11 @@ model SaleItem {
 
 model Payment {
   id            Int      @id @default(autoincrement())
-  customerId    Int
+  clientId      Int
   date          DateTime @default(now())
   amount        Decimal  @db.Decimal(10, 2)
   paymentMethod String
-  customer      Customer @relation(fields: [customerId], references: [id])
+  client        Client   @relation(fields: [clientId], references: [id])
 
   @@map("payments")
 }
@@ -181,6 +191,8 @@ model User {
   updatedCategories Category[] @relation("UpdatedCategories")
   createdSuppliers  Supplier[] @relation("CreatedSuppliers")
   updatedSuppliers  Supplier[] @relation("UpdatedSuppliers")
+  createdClients    Client[]   @relation("CreatedClients")
+  updatedClients    Client[]   @relation("UpdatedClients")
 
   @@map("users")
 }
