@@ -44,4 +44,19 @@ export class ClientsController {
   restore(@Param('id') id: string) {
     return this.clientsService.restore(+id);
   }
+
+  @Get(':id/sales')
+  getSales(@Param('id') id: string) {
+    return this.clientsService.getSales(+id);
+  }
+
+  @Get(':id/payments')
+  getPayments(@Param('id') id: string) {
+    return this.clientsService.getPayments(+id);
+  }
+
+  @Get(':id/current-account')
+  getCurrentAccount(@Param('id') id: string) {
+    return this.clientsService.getCurrentAccount(+id);
+  }
 }

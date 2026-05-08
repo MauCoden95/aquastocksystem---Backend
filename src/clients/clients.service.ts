@@ -120,6 +120,11 @@ export class ClientsService {
     });
   }
 
+
+
+
+
+  
   async restore(id: number) {
     const client = await this.prisma.client.findUnique({
       where: { id },
@@ -136,5 +141,76 @@ export class ClientsService {
         isActive: true,
       },
     });
+  }
+
+
+
+
+
+  async getSales(id: number) {
+    await this.findOne(id);
+    return this.prisma.sale.findMany({
+      where: { clientId: id },
+      orderBy: { date: 'desc' },
+      include: {
+        saleItems: {
+          include: {
+            product: {
+              select: { name: true }
+            }
+          }
+        }
+      }
+    });
+  }
+
+
+
+
+
+
+  async getPayments(id: number) {
+    await this.findOne(id);
+    return this.prisma.payment.findMany({
+      where: { clientId: id },
+      orderBy: { date: 'desc' }
+    });
+  }
+
+
+
+
+
+  async getCurrentAccount(id: number) {
+    await this.findOne(id);
+    
+    const [sales, payments] = await Promise.all([
+      this.prisma.sale.findMany({
+        where: { clientId: id },
+        select: { id: true, date: true, total: true, status: true },
+        orderBy: { date: 'desc' }
+      }),
+      this.prisma.payment.findMany({
+        where: { clientId: id },
+        select: { id: true, date: true, amount: true, paymentMethod: true },
+        orderBy: { date: 'desc' }
+      })
+    ]);
+
+    const totalSales = sales.reduce((acc, sale) => acc + Number(sale.total), 0);
+    const totalPayments = payments.reduce((acc, payment) => acc + Number(payment.amount), 0);
+    const balance = totalSales - totalPayments;
+
+    const movements = [
+      ...sales.map(s => ({ ...s, type: 'SALE' })),
+      ...payments.map(p => ({ ...p, type: 'PAYMENT', total: p.amount }))
+    ].sort((a, b) => b.date.getTime() - a.date.getTime());
+
+    return {
+      balance,
+      totalSales,
+      totalPayments,
+      movements
+    };
   }
 }
