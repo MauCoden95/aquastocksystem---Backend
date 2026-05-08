@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateSaleDto } from './dto/create-sale.dto';
+import { CreateSaleDetailDto } from './dto/create-sale-detail.dto';
 import { Decimal } from '@prisma/client/runtime/library';
 
 @Injectable()
@@ -170,5 +171,108 @@ export class SalesService {
     }
 
     return sale;
+  }
+
+  async findSaleDetails(id: number, page: number = 1, limit: number = 10) {
+    const skip = (page - 1) * limit;
+
+    const [data, totalItems] = await Promise.all([
+      this.prisma.saleItem.findMany({
+        where: { saleId: id },
+        skip,
+        take: limit,
+        include: {
+          product: { select: { id: true, name: true, barcode: true } },
+        },
+      }),
+      this.prisma.saleItem.count({ where: { saleId: id } }),
+    ]);
+
+    const totalPages = Math.ceil(totalItems / limit);
+
+    return {
+      data,
+      meta: {
+        totalItems,
+        itemCount: data.length,
+        itemsPerPage: limit,
+        totalPages,
+        currentPage: page,
+      },
+    };
+  }
+
+  async addSaleDetail(id: number, createSaleDetailDto: CreateSaleDetailDto) {
+    const { productId, quantity, unitPrice } = createSaleDetailDto;
+
+    // Verify sale exists
+    const sale = await this.prisma.sale.findUnique({
+      where: { id },
+    });
+    if (!sale) {
+      throw new NotFoundException(`Venta con ID ${id} no encontrada.`);
+    }
+
+    // Verify product exists
+    const product = await this.prisma.product.findFirst({
+      where: { id: productId, deletedAt: null },
+    });
+    if (!product) {
+      throw new NotFoundException(`Producto con ID ${productId} no encontrado.`);
+    }
+
+    // Check stock if COMPLETED
+    if (sale.status === 'COMPLETED' && product.stock < quantity) {
+      throw new BadRequestException(
+        `Stock insuficiente para el producto ${product.name}. Stock disponible: ${product.stock}`,
+      );
+    }
+
+    const subtotal = new Decimal(unitPrice).mul(quantity);
+
+    return this.prisma.$transaction(async (tx) => {
+      // Create sale item
+      const saleItem = await tx.saleItem.create({
+        data: {
+          saleId: id,
+          productId,
+          quantity,
+          unitPrice: new Decimal(unitPrice),
+          subtotal,
+        },
+        include: {
+          product: { select: { id: true, name: true, barcode: true } },
+        },
+      });
+
+      // Update sale total
+      await tx.sale.update({
+        where: { id },
+        data: {
+          total: { increment: subtotal },
+        },
+      });
+
+      // Update stock and create movement if COMPLETED
+      if (sale.status === 'COMPLETED') {
+        await tx.product.update({
+          where: { id: productId },
+          data: {
+            stock: { decrement: quantity },
+          },
+        });
+
+        await tx.stockMovement.create({
+          data: {
+            productId,
+            quantity,
+            movementType: 'SALE',
+            date: new Date(),
+          },
+        });
+      }
+
+      return saleItem;
+    });
   }
 }
