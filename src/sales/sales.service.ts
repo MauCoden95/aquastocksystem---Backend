@@ -214,19 +214,19 @@ export class SalesService {
       throw new NotFoundException(`Venta con ID ${id} no encontrada.`);
     }
 
+    // Restriction: Only allow adding items to PENDING or DRAFT sales
+    if (sale.status !== SaleStatus.PENDING && sale.status !== SaleStatus.DRAFT) {
+      throw new BadRequestException(
+        `No se pueden agregar ítems a una venta con estado ${sale.status}. Solo se permiten ventas en PENDING o DRAFT.`,
+      );
+    }
+
     // Verify product exists
     const product = await this.prisma.product.findFirst({
       where: { id: productId, deletedAt: null },
     });
     if (!product) {
       throw new NotFoundException(`Producto con ID ${productId} no encontrado.`);
-    }
-
-    // Check stock if COMPLETED
-    if (sale.status === 'COMPLETED' && product.stock < quantity) {
-      throw new BadRequestException(
-        `Stock insuficiente para el producto ${product.name}. Stock disponible: ${product.stock}`,
-      );
     }
 
     const subtotal = new Decimal(unitPrice).mul(quantity);

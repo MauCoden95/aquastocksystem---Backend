@@ -1,6 +1,7 @@
 import { IsEnum, IsString } from 'class-validator';
 
 export enum SaleStatus {
+  DRAFT = 'DRAFT',
   PENDING = 'PENDING',
   COMPLETED = 'COMPLETED',
   CANCELLED = 'CANCELLED',
