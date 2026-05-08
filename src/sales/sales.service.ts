@@ -105,7 +105,20 @@ export class SalesService {
     });
   }
 
-  async findAll(page: number = 1, limit: number = 10, search?: string) {
+
+
+
+
+
+  async findAll(
+    page: number = 1,
+    limit: number = 10,
+    search?: string,
+    status?: string,
+    clientId?: number,
+    startDate?: string,
+    endDate?: string,
+  ) {
     const skip = (page - 1) * limit;
     const where: any = {};
 
@@ -121,6 +134,31 @@ export class SalesService {
         },
       ];
     }
+
+    if (status) {
+      where.status = status;
+    }
+
+    if (clientId) {
+      where.clientId = clientId;
+    }
+
+    if (startDate || endDate) {
+      where.date = {};
+      if (startDate) {
+        where.date.gte = new Date(startDate);
+      }
+      if (endDate) {
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        where.date.lte = end;
+      }
+    }
+
+
+
+
+
 
     const [data, totalItems] = await Promise.all([
       this.prisma.sale.findMany({
@@ -154,6 +192,13 @@ export class SalesService {
     };
   }
 
+
+
+
+
+
+
+
   async findOne(id: number) {
     const sale = await this.prisma.sale.findUnique({
       where: { id },
@@ -173,6 +218,13 @@ export class SalesService {
 
     return sale;
   }
+
+
+
+
+
+
+
 
   async findSaleDetails(id: number, page: number = 1, limit: number = 10) {
     const skip = (page - 1) * limit;
@@ -202,6 +254,13 @@ export class SalesService {
       },
     };
   }
+
+
+
+
+
+
+
 
   async addSaleDetail(id: number, createSaleDetailDto: CreateSaleDetailDto) {
     const { productId, quantity, unitPrice } = createSaleDetailDto;
@@ -277,6 +336,12 @@ export class SalesService {
     });
   }
 
+
+
+
+
+
+
   async updateStatus(id: number, updateSaleStatusDto: UpdateSaleStatusDto) {
     const { status } = updateSaleStatusDto;
 
@@ -320,6 +385,14 @@ export class SalesService {
     });
   }
 
+
+
+
+
+
+
+
+
   private async handleCompletion(sale: any, tx: any) {
     // Check stock for all items first
     for (const item of sale.saleItems) {
@@ -347,6 +420,13 @@ export class SalesService {
       });
     }
   }
+
+
+
+
+
+
+  
 
   private async handleCancellation(sale: any, tx: any) {
     // Execute stock return

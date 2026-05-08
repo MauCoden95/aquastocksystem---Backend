@@ -18,11 +18,19 @@ export class SalesController {
     @Query('page') page?: string,
     @Query('limit') limit?: string,
     @Query('search') search?: string,
+    @Query('status') status?: string,
+    @Query('clientId') clientId?: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
   ) {
     return this.salesService.findAll(
       page ? +page : 1,
       limit ? +limit : 10,
       search,
+      status,
+      clientId ? +clientId : undefined,
+      startDate,
+      endDate,
     );
   }
 
