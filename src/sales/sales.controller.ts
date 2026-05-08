@@ -1,7 +1,8 @@
-import { Controller, Get, Post, Body, Param, Query, ParseIntPipe } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Query, ParseIntPipe, Patch } from '@nestjs/common';
 import { SalesService } from './sales.service';
 import { CreateSaleDto } from './dto/create-sale.dto';
 import { CreateSaleDetailDto } from './dto/create-sale-detail.dto';
+import { UpdateSaleStatusDto } from './dto/update-sale-status.dto';
 
 @Controller('sales')
 export class SalesController {
@@ -45,5 +46,13 @@ export class SalesController {
     @Body() createSaleDetailDto: CreateSaleDetailDto,
   ) {
     return this.salesService.addSaleDetail(id, createSaleDetailDto);
+  }
+
+  @Patch(':id/status')
+  updateStatus(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() updateSaleStatusDto: UpdateSaleStatusDto,
+  ) {
+    return this.salesService.updateStatus(id, updateSaleStatusDto);
   }
 }

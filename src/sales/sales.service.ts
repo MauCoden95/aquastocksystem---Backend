@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateSaleDto } from './dto/create-sale.dto';
 import { CreateSaleDetailDto } from './dto/create-sale-detail.dto';
+import { UpdateSaleStatusDto, SaleStatus } from './dto/update-sale-status.dto';
 import { Decimal } from '@prisma/client/runtime/library';
 
 @Injectable()
@@ -274,5 +275,95 @@ export class SalesService {
 
       return saleItem;
     });
+  }
+
+  async updateStatus(id: number, updateSaleStatusDto: UpdateSaleStatusDto) {
+    const { status } = updateSaleStatusDto;
+
+    const sale = await this.prisma.sale.findUnique({
+      where: { id },
+      include: { saleItems: { include: { product: true } } },
+    });
+
+    if (!sale) {
+      throw new NotFoundException(`Venta con ID ${id} no encontrada.`);
+    }
+
+    if (sale.status === status) {
+      return sale;
+    }
+
+    // Business Logic for Stock based on status transitions
+    return this.prisma.$transaction(async (tx) => {
+      // 1. If moving to COMPLETED, we must decrease stock
+      if (status === SaleStatus.COMPLETED) {
+        await this.handleCompletion(sale, tx);
+      }
+
+      // 2. If moving to CANCELLED and it was previously COMPLETED, we must return stock
+      if (status === SaleStatus.CANCELLED && sale.status === SaleStatus.COMPLETED) {
+        await this.handleCancellation(sale, tx);
+      }
+
+      return tx.sale.update({
+        where: { id },
+        data: { status },
+        include: {
+          client: { select: { id: true, name: true } },
+          saleItems: {
+            include: {
+              product: { select: { id: true, name: true, barcode: true } },
+            },
+          },
+        },
+      });
+    });
+  }
+
+  private async handleCompletion(sale: any, tx: any) {
+    // Check stock for all items first
+    for (const item of sale.saleItems) {
+      if (item.product.stock < item.quantity) {
+        throw new BadRequestException(
+          `Stock insuficiente para el producto ${item.product.name}. Disponible: ${item.product.stock}`,
+        );
+      }
+    }
+
+    // Execute stock deduction
+    for (const item of sale.saleItems) {
+      await tx.product.update({
+        where: { id: item.productId },
+        data: { stock: { decrement: item.quantity } },
+      });
+
+      await tx.stockMovement.create({
+        data: {
+          productId: item.productId,
+          quantity: item.quantity,
+          movementType: 'SALE',
+          date: new Date(),
+        },
+      });
+    }
+  }
+
+  private async handleCancellation(sale: any, tx: any) {
+    // Execute stock return
+    for (const item of sale.saleItems) {
+      await tx.product.update({
+        where: { id: item.productId },
+        data: { stock: { increment: item.quantity } },
+      });
+
+      await tx.stockMovement.create({
+        data: {
+          productId: item.productId,
+          quantity: item.quantity,
+          movementType: 'SALE_CANCELLED',
+          date: new Date(),
+        },
+      });
+    }
   }
 }
