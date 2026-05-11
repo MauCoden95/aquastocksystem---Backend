@@ -342,7 +342,7 @@ export class SalesService {
 
 
 
-  async updateStatus(id: number, updateSaleStatusDto: UpdateSaleStatusDto) {
+  async updateStatus(id: number, updateSaleStatusDto: UpdateSaleStatusDto, userName?: string) {
     const { status } = updateSaleStatusDto;
 
     const sale = await this.prisma.sale.findUnique({
@@ -356,6 +356,26 @@ export class SalesService {
 
     if (sale.status === status) {
       return sale;
+    }
+
+    const dataToUpdate: any = { status };
+
+    // If status is being changed to CANCELLED, save cancellation info
+    if (status === SaleStatus.CANCELLED) {
+      const now = new Date();
+      
+      // Formatting Date: DD-MM-AAAA
+      const day = String(now.getDate()).padStart(2, '0');
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const year = now.getFullYear();
+      dataToUpdate.cancellationDate = `${day}-${month}-${year}`;
+
+      // Formatting Time: HH:MM
+      const hours = String(now.getHours()).padStart(2, '0');
+      const minutes = String(now.getMinutes()).padStart(2, '0');
+      dataToUpdate.cancellationTime = `${hours}:${minutes}`;
+
+      dataToUpdate.cancelledByName = userName || 'Sistema';
     }
 
     // Business Logic for Stock based on status transitions
@@ -372,7 +392,7 @@ export class SalesService {
 
       return tx.sale.update({
         where: { id },
-        data: { status },
+        data: dataToUpdate,
         include: {
           client: { select: { id: true, name: true } },
           saleItems: {

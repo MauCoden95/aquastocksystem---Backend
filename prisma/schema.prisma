@@ -137,14 +137,17 @@ model Client {
 }
 
 model Sale {
-  id            Int        @id @default(autoincrement())
-  clientId      Int
-  date          DateTime   @default(now())
-  total         Decimal    @db.Decimal(10, 2)
-  status        String
-  paymentMethod String
-  client        Client     @relation(fields: [clientId], references: [id])
-  saleItems     SaleItem[]
+  id               Int        @id @default(autoincrement())
+  clientId         Int
+  date             DateTime   @default(now())
+  total            Decimal    @db.Decimal(10, 2)
+  status           String
+  paymentMethod    String
+  cancellationDate String?
+  cancellationTime String?
+  cancelledByName  String?
+  client           Client     @relation(fields: [clientId], references: [id])
+  saleItems        SaleItem[]
 
   @@map("sales")
 }
