@@ -1,9 +1,11 @@
-import { Controller, Get, Post, Body, Param, Query, ParseIntPipe, Patch } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Query, ParseIntPipe, Patch, UseGuards, Request } from '@nestjs/common';
 import { SalesService } from './sales.service';
 import { CreateSaleDto } from './dto/create-sale.dto';
 import { CreateSaleDetailDto } from './dto/create-sale-detail.dto';
 import { UpdateSaleStatusDto } from './dto/update-sale-status.dto';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
+@UseGuards(JwtAuthGuard)
 @Controller('sales')
 export class SalesController {
   constructor(private readonly salesService: SalesService) {}
@@ -60,7 +62,8 @@ export class SalesController {
   updateStatus(
     @Param('id', ParseIntPipe) id: number,
     @Body() updateSaleStatusDto: UpdateSaleStatusDto,
+    @Request() req,
   ) {
-    return this.salesService.updateStatus(id, updateSaleStatusDto);
+    return this.salesService.updateStatus(id, updateSaleStatusDto, req.user?.name);
   }
 }
