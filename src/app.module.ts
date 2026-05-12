@@ -14,6 +14,7 @@ import { ClientsModule } from './clients/clients.module';
 
 import { SalesModule } from './sales/sales.module';
 import { PaymentsModule } from './payments/payments.module';
+import { StockModule } from './stock/stock.module';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { PaymentsModule } from './payments/payments.module';
     ClientsModule,
     SalesModule,
     PaymentsModule,
+    StockModule,
   ],
   controllers: [AppController],
   providers: [AppService],
