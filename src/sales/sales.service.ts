@@ -9,106 +9,44 @@ import { Decimal } from '@prisma/client/runtime/library';
 export class SalesService {
   constructor(private prisma: PrismaService) {}
 
+  // --- CRUD METHODS ---
+
   async create(createSaleDto: CreateSaleDto) {
     const { clientId, status, paymentMethod, items } = createSaleDto;
+    const saleStatus = status || SaleStatus.COMPLETED;
 
-    // Verify client exists
-    const client = await this.prisma.client.findFirst({
-      where: { id: clientId, deletedAt: null },
-    });
-    if (!client) {
-      throw new NotFoundException(`Cliente con ID ${clientId} no encontrado.`);
-    }
+    // 1. Validations
+    await this.validateClient(clientId);
+    await this.validateProductsStock(items);
 
-    // Verify all products exist and have enough stock
-    const productIds = items.map((item) => item.productId);
-    const products = await this.prisma.product.findMany({
-      where: { id: { in: productIds }, deletedAt: null },
-    });
-
-    if (products.length !== productIds.length) {
-      const foundIds = products.map((p) => p.id);
-      const missingIds = productIds.filter((id) => !foundIds.includes(id));
-      throw new NotFoundException(`Productos no encontrados: ${missingIds.join(', ')}`);
-    }
-
-    // Check stock for each product
-    for (const item of items) {
-      const product = products.find((p) => p.id === item.productId);
-      if (!product) {
-        throw new NotFoundException(`Producto con ID ${item.productId} no encontrado.`);
-      }
-      if (product.stock < item.quantity) {
-        throw new BadRequestException(
-          `Stock insuficiente para el producto ${product.name}. Stock disponible: ${product.stock}`,
-        );
-      }
-    }
-
-    // Calculate totals
-    const saleItems = items.map((item) => ({
-      productId: item.productId,
-      quantity: item.quantity,
-      unitPrice: new Decimal(item.unitPrice),
-      subtotal: new Decimal(item.unitPrice * item.quantity),
-    }));
-
-    const total = saleItems.reduce(
-      (acc, item) => acc.add(item.subtotal),
-      new Decimal(0),
-    );
+    // 2. Prepare items and totals
+    const { saleItems, total } = this.prepareSaleItems(items);
 
     return this.prisma.$transaction(async (tx) => {
-      // Create the sale
+      // 3. Create the sale
       const sale = await tx.sale.create({
         data: {
           clientId,
-          status: status || 'COMPLETED',
+          status: saleStatus,
           paymentMethod,
           total,
           saleItems: {
             create: saleItems,
           },
         },
-        include: {
-          client: { select: { id: true, name: true } },
-          saleItems: {
-            include: {
-              product: { select: { id: true, name: true, barcode: true } },
-            },
-          },
-        },
+        include: this.getSaleInclude(false),
       });
 
-      // Update stock and create movements if status is COMPLETED
-      if (sale.status === 'COMPLETED') {
+      // 4. Update stock and movements if status is COMPLETED
+      if (sale.status === SaleStatus.COMPLETED) {
         for (const item of saleItems) {
-          await tx.product.update({
-            where: { id: item.productId },
-            data: {
-              stock: { decrement: item.quantity },
-            },
-          });
-
-          await tx.stockMovement.create({
-            data: {
-              productId: item.productId,
-              quantity: item.quantity,
-              movementType: 'SALE',
-              date: new Date(),
-            },
-          });
+          await this.decreaseStock(item.productId, item.quantity, tx);
         }
       }
 
       return sale;
     });
   }
-
-
-
-
-
 
   async findAll(
     page: number = 1,
@@ -155,24 +93,12 @@ export class SalesService {
       }
     }
 
-
-
-
-
-
     const [data, totalItems] = await Promise.all([
       this.prisma.sale.findMany({
         where,
         skip,
         take: limit,
-        include: {
-          client: { select: { id: true, name: true } },
-          saleItems: {
-            include: {
-              product: { select: { id: true, name: true, barcode: true } },
-            },
-          },
-        },
+        include: this.getSaleInclude(false),
         orderBy: { date: 'desc' },
       }),
       this.prisma.sale.count({ where }),
@@ -192,24 +118,10 @@ export class SalesService {
     };
   }
 
-
-
-
-
-
-
-
   async findOne(id: number) {
     const sale = await this.prisma.sale.findUnique({
       where: { id },
-      include: {
-        client: { select: { id: true, name: true, phone: true, email: true } },
-        saleItems: {
-          include: {
-            product: { select: { id: true, name: true, barcode: true } },
-          },
-        },
-      },
+      include: this.getSaleInclude(true),
     });
 
     if (!sale) {
@@ -219,12 +131,7 @@ export class SalesService {
     return sale;
   }
 
-
-
-
-
-
-
+  // --- SALE DETAILS METHODS ---
 
   async findSaleDetails(id: number, page: number = 1, limit: number = 10) {
     const skip = (page - 1) * limit;
@@ -255,43 +162,20 @@ export class SalesService {
     };
   }
 
-
-
-
-
-
-
-
   async addSaleDetail(id: number, createSaleDetailDto: CreateSaleDetailDto) {
     const { productId, quantity, unitPrice } = createSaleDetailDto;
 
-    // Verify sale exists
-    const sale = await this.prisma.sale.findUnique({
-      where: { id },
-    });
-    if (!sale) {
-      throw new NotFoundException(`Venta con ID ${id} no encontrada.`);
-    }
+    // 1. Verify sale exists and can be modified
+    const sale = await this.findOne(id);
+    this.ensureSaleCanBeModified(sale.status);
 
-    // Restriction: Only allow adding items to PENDING or DRAFT sales
-    if (sale.status !== SaleStatus.PENDING && sale.status !== SaleStatus.DRAFT) {
-      throw new BadRequestException(
-        `No se pueden agregar ítems a una venta con estado ${sale.status}. Solo se permiten ventas en PENDING o DRAFT.`,
-      );
-    }
-
-    // Verify product exists
-    const product = await this.prisma.product.findFirst({
-      where: { id: productId, deletedAt: null },
-    });
-    if (!product) {
-      throw new NotFoundException(`Producto con ID ${productId} no encontrado.`);
-    }
+    // 2. Verify product exists and has enough stock
+    await this.validateProductStock(productId, quantity);
 
     const subtotal = new Decimal(unitPrice).mul(quantity);
 
     return this.prisma.$transaction(async (tx) => {
-      // Create sale item
+      // 3. Create sale item
       const saleItem = await tx.saleItem.create({
         data: {
           saleId: id,
@@ -305,7 +189,7 @@ export class SalesService {
         },
       });
 
-      // Update sale total
+      // 4. Update sale total
       await tx.sale.update({
         where: { id },
         data: {
@@ -313,23 +197,9 @@ export class SalesService {
         },
       });
 
-      // Update stock and create movement if COMPLETED
-      if (sale.status === 'COMPLETED') {
-        await tx.product.update({
-          where: { id: productId },
-          data: {
-            stock: { decrement: quantity },
-          },
-        });
-
-        await tx.stockMovement.create({
-          data: {
-            productId,
-            quantity,
-            movementType: 'SALE',
-            date: new Date(),
-          },
-        });
+      // 5. Update stock and movemen if sale is COMPLETED
+      if (sale.status === SaleStatus.COMPLETED) {
+        await this.decreaseStock(productId, quantity, tx);
       }
 
       return saleItem;
@@ -339,8 +209,9 @@ export class SalesService {
 
 
 
+  
 
-
+  // --- STATUS MANAGEMENT METHODS ---
 
   async updateStatus(id: number, updateSaleStatusDto: UpdateSaleStatusDto, userName?: string) {
     const { status } = updateSaleStatusDto;
@@ -360,32 +231,15 @@ export class SalesService {
 
     const dataToUpdate: any = { status };
 
-    // If status is being changed to CANCELLED, save cancellation info
     if (status === SaleStatus.CANCELLED) {
-      const now = new Date();
-      
-      // Formatting Date: DD-MM-AAAA
-      const day = String(now.getDate()).padStart(2, '0');
-      const month = String(now.getMonth() + 1).padStart(2, '0');
-      const year = now.getFullYear();
-      dataToUpdate.cancellationDate = `${day}-${month}-${year}`;
-
-      // Formatting Time: HH:MM
-      const hours = String(now.getHours()).padStart(2, '0');
-      const minutes = String(now.getMinutes()).padStart(2, '0');
-      dataToUpdate.cancellationTime = `${hours}:${minutes}`;
-
-      dataToUpdate.cancelledByName = userName || 'Sistema';
+      this.applyCancellationData(dataToUpdate, userName);
     }
 
-    // Business Logic for Stock based on status transitions
     return this.prisma.$transaction(async (tx) => {
-      // 1. If moving to COMPLETED, we must decrease stock
       if (status === SaleStatus.COMPLETED) {
         await this.handleCompletion(sale, tx);
       }
 
-      // 2. If moving to CANCELLED and it was previously COMPLETED, we must return stock
       if (status === SaleStatus.CANCELLED && sale.status === SaleStatus.COMPLETED) {
         await this.handleCancellation(sale, tx);
       }
@@ -393,14 +247,7 @@ export class SalesService {
       return tx.sale.update({
         where: { id },
         data: dataToUpdate,
-        include: {
-          client: { select: { id: true, name: true } },
-          saleItems: {
-            include: {
-              product: { select: { id: true, name: true, barcode: true } },
-            },
-          },
-        },
+        include: this.getSaleInclude(false),
       });
     });
   }
@@ -413,8 +260,148 @@ export class SalesService {
 
 
 
+  // --- PRIVATE HELPERS ---
+
+  private async decreaseStock(productId: number, quantity: number, tx: any) {
+    await tx.product.update({
+      where: { id: productId },
+      data: {
+        stock: { decrement: quantity },
+      },
+    });
+
+    await tx.stockMovement.create({
+      data: {
+        productId,
+        quantity,
+        movementType: 'SALE',
+        date: new Date(),
+      },
+    });
+  }
+
+  private async increaseStock(productId: number, quantity: number, tx: any) {
+    await tx.product.update({
+      where: { id: productId },
+      data: {
+        stock: { increment: quantity },
+      },
+    });
+
+    await tx.stockMovement.create({
+      data: {
+        productId,
+        quantity,
+        movementType: 'SALE_CANCELLED',
+        date: new Date(),
+      },
+    });
+  }
+
+  private async validateClient(clientId: number) {
+    const client = await this.prisma.client.findFirst({
+      where: { id: clientId, deletedAt: null },
+    });
+    if (!client) {
+      throw new NotFoundException(`Cliente con ID ${clientId} no encontrado.`);
+    }
+  }
+
+  private async validateProductsStock(items: any[]) {
+    const productIds = items.map((item) => item.productId);
+    const products = await this.prisma.product.findMany({
+      where: { id: { in: productIds }, deletedAt: null },
+    });
+
+    if (products.length !== productIds.length) {
+      const foundIds = products.map((p) => p.id);
+      const missingIds = productIds.filter((id) => !foundIds.includes(id));
+      throw new NotFoundException(`Productos no encontrados: ${missingIds.join(', ')}`);
+    }
+
+    for (const item of items) {
+      const product = products.find((p) => p.id === item.productId);
+      if (!product) {
+        throw new NotFoundException(`Producto con ID ${item.productId} no encontrado.`);
+      }
+      if (product.stock < item.quantity) {
+        throw new BadRequestException(
+          `Stock insuficiente para el producto ${product.name}. Stock disponible: ${product.stock}`,
+        );
+      }
+    }
+  }
+
+  private async validateProductStock(productId: number, quantity: number) {
+    const product = await this.prisma.product.findFirst({
+      where: { id: productId, deletedAt: null },
+    });
+    if (!product) {
+      throw new NotFoundException(`Producto con ID ${productId} no encontrado.`);
+    }
+    if (product.stock < quantity) {
+      throw new BadRequestException(
+        `Stock insuficiente para el producto ${product.name}. Stock disponible: ${product.stock}`,
+      );
+    }
+    return product;
+  }
+
+  private ensureSaleCanBeModified(status: string) {
+    const editableStatuses = [SaleStatus.PENDING, SaleStatus.DRAFT];
+    if (!editableStatuses.includes(status as SaleStatus)) {
+      throw new BadRequestException(
+        `No se pueden agregar ítems a una venta con estado ${status}. Solo se permiten: ${editableStatuses.join(', ')}`,
+      );
+    }
+  }
+
+  private prepareSaleItems(items: any[]) {
+    const saleItems = items.map((item) => ({
+      productId: item.productId,
+      quantity: item.quantity,
+      unitPrice: new Decimal(item.unitPrice),
+      subtotal: new Decimal(item.unitPrice).mul(item.quantity),
+    }));
+
+    const total = saleItems.reduce(
+      (acc, item) => acc.add(item.subtotal),
+      new Decimal(0),
+    );
+
+    return { saleItems, total };
+  }
+
+  private applyCancellationData(data: any, userName?: string) {
+    const now = new Date();
+    const day = String(now.getDate()).padStart(2, '0');
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const year = now.getFullYear();
+    data.cancellationDate = `${day}-${month}-${year}`;
+
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    data.cancellationTime = `${hours}:${minutes}`;
+
+    data.cancelledByName = userName || 'Sistema';
+  }
+
+  private getSaleInclude(full: boolean) {
+    const clientSelect = full 
+      ? { id: true, name: true, phone: true, email: true }
+      : { id: true, name: true };
+
+    return {
+      client: { select: clientSelect },
+      saleItems: {
+        include: {
+          product: { select: { id: true, name: true, barcode: true } },
+        },
+      },
+    };
+  }
+
   private async handleCompletion(sale: any, tx: any) {
-    // Check stock for all items first
     for (const item of sale.saleItems) {
       if (item.product.stock < item.quantity) {
         throw new BadRequestException(
@@ -423,47 +410,15 @@ export class SalesService {
       }
     }
 
-    // Execute stock deduction
     for (const item of sale.saleItems) {
-      await tx.product.update({
-        where: { id: item.productId },
-        data: { stock: { decrement: item.quantity } },
-      });
-
-      await tx.stockMovement.create({
-        data: {
-          productId: item.productId,
-          quantity: item.quantity,
-          movementType: 'SALE',
-          date: new Date(),
-        },
-      });
+      await this.decreaseStock(item.productId, item.quantity, tx);
     }
   }
 
-
-
-
-
-
-  
-
   private async handleCancellation(sale: any, tx: any) {
-    // Execute stock return
     for (const item of sale.saleItems) {
-      await tx.product.update({
-        where: { id: item.productId },
-        data: { stock: { increment: item.quantity } },
-      });
-
-      await tx.stockMovement.create({
-        data: {
-          productId: item.productId,
-          quantity: item.quantity,
-          movementType: 'SALE_CANCELLED',
-          date: new Date(),
-        },
-      });
+      await this.increaseStock(item.productId, item.quantity, tx);
     }
   }
 }
+
