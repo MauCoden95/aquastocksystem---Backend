@@ -1,15 +1,16 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreatePaymentDto } from './dto/create-payment.dto';
+import { UpdatePaymentDto } from './dto/update-payment.dto';
 
 @Injectable()
 export class PaymentsService {
   constructor(private prisma: PrismaService) {}
 
-  async create(createPaymentDto: CreatePaymentDto) {
+  async create(createPaymentDto: CreatePaymentDto, userId?: number) {
     // Check if client exists
     const client = await this.prisma.client.findUnique({
-      where: { id: createPaymentDto.clientId },
+      where: { id: createPaymentDto.clientId, deletedAt: null },
     });
 
     if (!client) {
@@ -22,16 +23,21 @@ export class PaymentsService {
         amount: createPaymentDto.amount,
         paymentMethod: createPaymentDto.paymentMethod,
         date: createPaymentDto.date ? new Date(createPaymentDto.date) : undefined,
+        createdById: userId,
       },
     });
   }
 
-  async findAll(page: number = 1, limit: number = 10, clientId?: number) {
+  async findAll(page: number = 1, limit: number = 10, clientId?: number, isActive?: boolean) {
     const skip = (page - 1) * limit;
-    const where: any = {};
+    const where: any = { deletedAt: null };
 
     if (clientId) {
       where.clientId = clientId;
+    }
+    
+    if (isActive !== undefined) {
+      where.isActive = isActive;
     }
 
     const [data, totalItems] = await Promise.all([
@@ -41,6 +47,18 @@ export class PaymentsService {
         take: limit,
         include: {
           client: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+          createdBy: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+          updatedBy: {
             select: {
               id: true,
               name: true,
@@ -67,10 +85,22 @@ export class PaymentsService {
   }
 
   async findOne(id: number) {
-    const payment = await this.prisma.payment.findUnique({
-      where: { id },
+    const payment = await this.prisma.payment.findFirst({
+      where: { id, deletedAt: null },
       include: {
         client: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        createdBy: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        updatedBy: {
           select: {
             id: true,
             name: true,
@@ -84,5 +114,50 @@ export class PaymentsService {
     }
 
     return payment;
+  }
+
+  async update(id: number, updatePaymentDto: UpdatePaymentDto, userId?: number) {
+    await this.findOne(id);
+
+    return this.prisma.payment.update({
+      where: { id },
+      data: {
+        ...updatePaymentDto,
+        date: updatePaymentDto.date ? new Date(updatePaymentDto.date) : undefined,
+        updatedById: userId,
+      },
+    });
+  }
+
+  async remove(id: number, userId?: number) {
+    await this.findOne(id);
+
+    return this.prisma.payment.update({
+      where: { id },
+      data: {
+        deletedAt: new Date(),
+        isActive: false,
+        updatedById: userId,
+      },
+    });
+  }
+
+  async restore(id: number, userId?: number) {
+    const payment = await this.prisma.payment.findUnique({
+      where: { id },
+    });
+
+    if (!payment) {
+      throw new NotFoundException(`Pago con ID ${id} no encontrado`);
+    }
+
+    return this.prisma.payment.update({
+      where: { id },
+      data: {
+        deletedAt: null,
+        isActive: true,
+        updatedById: userId,
+      },
+    });
   }
 }

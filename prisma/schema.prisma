@@ -171,7 +171,16 @@ model Payment {
   date          DateTime @default(now())
   amount        Decimal  @db.Decimal(10, 2)
   paymentMethod String
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt @default(now())
+  deletedAt     DateTime?
+  createdById   Int?
+  updatedById   Int?
+  
   client        Client   @relation(fields: [clientId], references: [id])
+  createdBy     User?    @relation(name: "CreatedPayments", fields: [createdById], references: [id])
+  updatedBy     User?    @relation(name: "UpdatedPayments", fields: [updatedById], references: [id])
 
   @@map("payments")
 }
@@ -196,6 +205,8 @@ model User {
   updatedSuppliers  Supplier[] @relation("UpdatedSuppliers")
   createdClients    Client[]   @relation("CreatedClients")
   updatedClients    Client[]   @relation("UpdatedClients")
+  createdPayments   Payment[]  @relation("CreatedPayments")
+  updatedPayments   Payment[]  @relation("UpdatedPayments")
 
   @@map("users")
 }
