@@ -62,6 +62,43 @@ export class ReportsService {
     };
   }
 
+  async getCustomerDebtReport() {
+    const clients = await this.prisma.client.findMany({
+      where: { deletedAt: null, isActive: true },
+      include: {
+        sales: {
+          where: { status: 'COMPLETED' },
+          select: { total: true },
+        },
+        payments: {
+          where: { status: 'PAID', deletedAt: null },
+          select: { amount: true },
+        },
+      },
+    });
+
+    const report = clients.map(client => {
+      const totalPurchased = client.sales.reduce((sum, sale) => sum + Number(sale.total || 0), 0);
+      const totalPaid = client.payments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+      const balance = totalPurchased - totalPaid;
+
+      return {
+        id: client.id,
+        name: client.name,
+        taxId: client.taxId,
+        totalPurchased,
+        totalPaid,
+        balance: Number(balance.toFixed(2)),
+        creditLimit: Number(client.creditLimit || 0),
+        isOverLimit: balance > Number(client.creditLimit || 0),
+      };
+    });
+
+    return report
+      .filter(r => r.balance > 0)
+      .sort((a, b) => b.balance - a.balance);
+  }
+
   async getBestSellingProducts(limit: number = 10, startDate?: string, endDate?: string) {
     const where: any = {
       sale: { status: 'COMPLETED' },
