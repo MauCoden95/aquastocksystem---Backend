@@ -12,9 +12,23 @@ export class StockController {
     @Query('page') page: string = '1',
     @Query('limit') limit: string = '10',
     @Query('search') search?: string,
+    @Query('categoryId') categoryId?: string,
+    @Query('brandId') brandId?: string,
     @Query('lowStock') lowStock?: string,
   ) {
-    return this.stockService.getStockReport(+page, +limit, search, lowStock === 'true');
+    return this.stockService.getStockReport(
+      +page,
+      +limit,
+      search,
+      categoryId ? +categoryId : undefined,
+      brandId ? +brandId : undefined,
+      lowStock === 'true',
+    );
+  }
+
+  @Get('summary')
+  getSummary() {
+    return this.stockService.getStockSummary();
   }
 
   @Get(':id')

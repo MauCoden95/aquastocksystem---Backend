@@ -11,7 +11,6 @@ import { BrandsModule } from './brands/brands.module';
 import { SuppliersModule } from './suppliers/suppliers.module';
 import { PurchasesModule } from './purchases/purchases.module';
 import { ClientsModule } from './clients/clients.module';
-
 import { SalesModule } from './sales/sales.module';
 import { PaymentsModule } from './payments/payments.module';
 import { StockModule } from './stock/stock.module';
