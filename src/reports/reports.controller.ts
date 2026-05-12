@@ -23,4 +23,9 @@ export class ReportsController {
   ) {
     return this.reportsService.getBestSellingProducts(+limit, startDate, endDate);
   }
+
+  @Get('low-stock')
+  getLowStockReport() {
+    return this.reportsService.getLowStockReport();
+  }
 }
