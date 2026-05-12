@@ -113,4 +113,32 @@ export class ReportsService {
       }),
     );
   }
+
+  async getLowStockReport() {
+    const products = await this.prisma.product.findMany({
+      where: { deletedAt: null },
+      include: {
+        category: { select: { name: true } },
+        brand: { select: { name: true } },
+      },
+      orderBy: { stock: 'asc' },
+    });
+
+    const lowStockProducts = products.filter(p => p.stock <= p.minStock);
+
+    return {
+      count: lowStockProducts.length,
+      products: lowStockProducts.map(p => ({
+        id: p.id,
+        name: p.name,
+        barcode: p.barcode,
+        category: p.category.name,
+        brand: p.brand.name,
+        stock: p.stock,
+        minStock: p.minStock,
+        shortage: p.minStock - p.stock,
+        status: p.stock <= 0 ? 'OUT_OF_STOCK' : 'LOW_STOCK',
+      })),
+    };
+  }
 }
