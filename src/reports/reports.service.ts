@@ -61,4 +61,56 @@ export class ReportsService {
       })),
     };
   }
+
+  async getBestSellingProducts(limit: number = 10, startDate?: string, endDate?: string) {
+    const where: any = {
+      sale: { status: 'COMPLETED' },
+    };
+
+    if (startDate || endDate) {
+      where.sale.date = {};
+      if (startDate) where.sale.date.gte = new Date(startDate);
+      if (endDate) {
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        where.sale.date.lte = end;
+      }
+    }
+
+    const bestSellers = await this.prisma.saleItem.groupBy({
+      by: ['productId'],
+      _sum: {
+        quantity: true,
+        subtotal: true,
+      },
+      where,
+      orderBy: {
+        _sum: {
+          quantity: 'desc',
+        },
+      },
+      take: limit,
+    });
+
+    return Promise.all(
+      bestSellers.map(async (item) => {
+        const product = await this.prisma.product.findUnique({
+          where: { id: item.productId },
+          include: {
+            category: { select: { name: true } },
+            brand: { select: { name: true } },
+          },
+        });
+
+        return {
+          id: item.productId,
+          name: product?.name || 'Unknown',
+          category: product?.category?.name || 'Unknown',
+          brand: product?.brand?.name || 'Unknown',
+          totalQuantity: item._sum.quantity,
+          totalRevenue: item._sum.subtotal,
+        };
+      }),
+    );
+  }
 }
