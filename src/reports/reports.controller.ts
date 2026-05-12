@@ -14,4 +14,13 @@ export class ReportsController {
   ) {
     return this.reportsService.getSalesReport(startDate, endDate);
   }
+
+  @Get('best-selling-products')
+  getBestSellingProducts(
+    @Query('limit') limit: string = '10',
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ) {
+    return this.reportsService.getBestSellingProducts(+limit, startDate, endDate);
+  }
 }
