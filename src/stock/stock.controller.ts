@@ -31,6 +31,26 @@ export class StockController {
     return this.stockService.getStockSummary();
   }
 
+  @Get('movements')
+  findAllMovements(
+    @Query('page') page: string = '1',
+    @Query('limit') limit: string = '10',
+    @Query('productId') productId?: string,
+    @Query('type') type?: string,
+  ) {
+    return this.stockService.findAllMovements(
+      +page,
+      +limit,
+      productId ? +productId : undefined,
+      type,
+    );
+  }
+
+  @Get('movements/:id')
+  findOneMovement(@Param('id', ParseIntPipe) id: number) {
+    return this.stockService.findOneMovement(id);
+  }
+
   @Get(':id')
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.stockService.getStockByProduct(id);
