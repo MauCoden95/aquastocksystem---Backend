@@ -2,6 +2,7 @@ import { Controller, Get, Post, Body, Param, Query, UseGuards, ParseIntPipe, Req
 import { PaymentsService } from './payments.service';
 import { CreatePaymentDto } from './dto/create-payment.dto';
 import { UpdatePaymentDto } from './dto/update-payment.dto';
+import { CancelPaymentDto } from './dto/cancel-payment.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @UseGuards(JwtAuthGuard)
@@ -25,6 +26,7 @@ export class PaymentsController {
     @Query('minAmount') minAmount?: string,
     @Query('maxAmount') maxAmount?: string,
     @Query('paymentMethod') paymentMethod?: string,
+    @Query('status') status?: string,
   ) {
     const activeFilter = isActive === 'true' ? true : isActive === 'false' ? false : undefined;
     
@@ -38,12 +40,22 @@ export class PaymentsController {
       minAmount ? +minAmount : undefined,
       maxAmount ? +maxAmount : undefined,
       paymentMethod,
+      status,
     );
   }
 
   @Get(':id')
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.paymentsService.findOne(id);
+  }
+
+  @Patch(':id/cancel')
+  cancel(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() cancelPaymentDto: CancelPaymentDto,
+    @Request() req,
+  ) {
+    return this.paymentsService.cancel(id, cancelPaymentDto, req.user?.id);
   }
 
   @Patch(':id')

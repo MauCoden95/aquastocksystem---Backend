@@ -1,7 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreatePaymentDto } from './dto/create-payment.dto';
 import { UpdatePaymentDto } from './dto/update-payment.dto';
+import { CancelPaymentDto } from './dto/cancel-payment.dto';
 
 @Injectable()
 export class PaymentsService {
@@ -38,6 +39,7 @@ export class PaymentsService {
     minAmount?: number,
     maxAmount?: number,
     paymentMethod?: string,
+    status?: string,
   ) {
     const skip = (page - 1) * limit;
     const where: any = { deletedAt: null };
@@ -48,6 +50,10 @@ export class PaymentsService {
     
     if (isActive !== undefined) {
       where.isActive = isActive;
+    }
+
+    if (status) {
+      where.status = status;
     }
 
     if (startDate || endDate) {
@@ -79,24 +85,10 @@ export class PaymentsService {
         skip,
         take: limit,
         include: {
-          client: {
-            select: {
-              id: true,
-              name: true,
-            },
-          },
-          createdBy: {
-            select: {
-              id: true,
-              name: true,
-            },
-          },
-          updatedBy: {
-            select: {
-              id: true,
-              name: true,
-            },
-          },
+          client: { select: { id: true, name: true } },
+          createdBy: { select: { id: true, name: true } },
+          updatedBy: { select: { id: true, name: true } },
+          cancelledBy: { select: { id: true, name: true } },
         },
         orderBy: { date: 'desc' },
       }),
@@ -121,24 +113,10 @@ export class PaymentsService {
     const payment = await this.prisma.payment.findFirst({
       where: { id, deletedAt: null },
       include: {
-        client: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-        createdBy: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-        updatedBy: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
+        client: { select: { id: true, name: true } },
+        createdBy: { select: { id: true, name: true } },
+        updatedBy: { select: { id: true, name: true } },
+        cancelledBy: { select: { id: true, name: true } },
       },
     });
 
@@ -147,6 +125,24 @@ export class PaymentsService {
     }
 
     return payment;
+  }
+
+  async cancel(id: number, cancelPaymentDto: CancelPaymentDto, userId?: number) {
+    const payment = await this.findOne(id);
+
+    if (payment.status === 'CANCELLED') {
+      throw new ConflictException('El pago ya se encuentra anulado');
+    }
+
+    return this.prisma.payment.update({
+      where: { id },
+      data: {
+        status: 'CANCELLED',
+        cancelReason: cancelPaymentDto.cancelReason,
+        cancelledAt: new Date(),
+        cancelledById: userId,
+      },
+    });
   }
 
   async update(id: number, updatePaymentDto: UpdatePaymentDto, userId?: number) {
