@@ -28,4 +28,9 @@ export class ReportsController {
   getLowStockReport() {
     return this.reportsService.getLowStockReport();
   }
+
+  @Get('customer-debt')
+  getCustomerDebtReport() {
+    return this.reportsService.getCustomerDebtReport();
+  }
 }
