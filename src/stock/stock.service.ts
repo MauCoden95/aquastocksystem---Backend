@@ -118,4 +118,72 @@ export class StockService {
       healthyStock,
     };
   }
+
+  async findAllMovements(
+    page: number = 1,
+    limit: number = 10,
+    productId?: number,
+    movementType?: string,
+  ) {
+    const skip = (page - 1) * limit;
+    const where: any = {};
+
+    if (productId) {
+      where.productId = productId;
+    }
+
+    if (movementType) {
+      where.movementType = movementType;
+    }
+
+    const [data, totalItems] = await Promise.all([
+      this.prisma.stockMovement.findMany({
+        where,
+        skip,
+        take: limit,
+        include: {
+          product: {
+            select: { id: true, name: true, barcode: true },
+          },
+        },
+        orderBy: { date: 'desc' },
+      }),
+      this.prisma.stockMovement.count({ where }),
+    ]);
+
+    const totalPages = Math.ceil(totalItems / limit);
+
+    return {
+      data,
+      meta: {
+        totalItems,
+        itemCount: data.length,
+        itemsPerPage: limit,
+        totalPages,
+        currentPage: page,
+      },
+    };
+  }
+
+  async findOneMovement(id: number) {
+    const movement = await this.prisma.stockMovement.findUnique({
+      where: { id },
+      include: {
+        product: {
+          select: {
+            id: true,
+            name: true,
+            barcode: true,
+            stock: true,
+          },
+        },
+      },
+    });
+
+    if (!movement) {
+      throw new NotFoundException(`Stock movement with ID ${id} not found`);
+    }
+
+    return movement;
+  }
 }
