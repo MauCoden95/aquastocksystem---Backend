@@ -20,9 +20,25 @@ export class PaymentsController {
     @Query('limit') limit: string = '10',
     @Query('clientId') clientId?: string,
     @Query('isActive') isActive?: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+    @Query('minAmount') minAmount?: string,
+    @Query('maxAmount') maxAmount?: string,
+    @Query('paymentMethod') paymentMethod?: string,
   ) {
     const activeFilter = isActive === 'true' ? true : isActive === 'false' ? false : undefined;
-    return this.paymentsService.findAll(+page, +limit, clientId ? +clientId : undefined, activeFilter);
+    
+    return this.paymentsService.findAll(
+      +page,
+      +limit,
+      clientId ? +clientId : undefined,
+      activeFilter,
+      startDate,
+      endDate,
+      minAmount ? +minAmount : undefined,
+      maxAmount ? +maxAmount : undefined,
+      paymentMethod,
+    );
   }
 
   @Get(':id')

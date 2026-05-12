@@ -28,7 +28,17 @@ export class PaymentsService {
     });
   }
 
-  async findAll(page: number = 1, limit: number = 10, clientId?: number, isActive?: boolean) {
+  async findAll(
+    page: number = 1,
+    limit: number = 10,
+    clientId?: number,
+    isActive?: boolean,
+    startDate?: string,
+    endDate?: string,
+    minAmount?: number,
+    maxAmount?: number,
+    paymentMethod?: string,
+  ) {
     const skip = (page - 1) * limit;
     const where: any = { deletedAt: null };
 
@@ -38,6 +48,29 @@ export class PaymentsService {
     
     if (isActive !== undefined) {
       where.isActive = isActive;
+    }
+
+    if (startDate || endDate) {
+      where.date = {};
+      if (startDate) where.date.gte = new Date(startDate);
+      if (endDate) {
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        where.date.lte = end;
+      }
+    }
+
+    if (minAmount !== undefined || maxAmount !== undefined) {
+      where.amount = {};
+      if (minAmount !== undefined) where.amount.gte = minAmount;
+      if (maxAmount !== undefined) where.amount.lte = maxAmount;
+    }
+
+    if (paymentMethod) {
+      where.paymentMethod = {
+        contains: paymentMethod,
+        mode: 'insensitive',
+      };
     }
 
     const [data, totalItems] = await Promise.all([
